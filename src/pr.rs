@@ -38,7 +38,7 @@ pub struct PullRequestDetails {
     //    number: f64,
     title: String,
     //    user: User,
-    //    created_at: String,
+    created_at: String,
     //    updated_at: String,
     //    closed_at: Option<String>,
     //    merged_at: Option<String>,
@@ -61,6 +61,7 @@ pub struct PullRequestDetails {
 //}
 
 fn get_pull_requests(
+    token: &String,
     repo: &String,
     owner: &String,
     days: u32,
@@ -74,11 +75,10 @@ fn get_pull_requests(
              days, owner, repo);
 
     let mut all_pull_requests: Vec<PullRequest> = Vec::new();
-    let token = "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";
     let client = Client::new();
 
     let mut cur_page = 1;
-    let page_limit = 10;
+    let page_limit = 20;
 
     loop {
         debug!("Getting {} PRs of page {}", page_limit, cur_page);
@@ -121,6 +121,7 @@ fn get_pull_requests(
 }
 
 pub fn get_pull_request_details(
+    token: &String,
     repo: &String,
     owner: &String,
     pr_number: f64,
@@ -131,7 +132,6 @@ pub fn get_pull_request_details(
         "https://api.github.com/repos/{}/{}/pulls/{}",
         owner, repo, pr_number
     );
-    let token = "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";
     let client = Client::new();
 
     let res = client
@@ -183,11 +183,12 @@ pub fn get_pull_request_details(
 }
 
 fn extract_pull_request_stats(
+    token: String,
     repo: String,
     owner: String,
     days: u32,
 ) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>), Box<dyn std::error::Error>> {
-    let pull_requests = get_pull_requests(&repo, &owner, days)?;
+    let pull_requests = get_pull_requests(&token, &repo, &owner, days)?;
 
     let mut additions = Vec::new();
     let mut deletions = Vec::new();
@@ -215,9 +216,15 @@ fn extract_pull_request_stats(
     pb_title.set_prefix("[PR]");
 
     let pb = multi_pb.insert_after(&pb_title, ProgressBar::new(amount_pull_request.try_into().unwrap()));
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template("[{elapsed_precise}] [{wide_bar}] {percent}%")?
+    );
 
     for pr in pull_requests {
-        let pr_details = get_pull_request_details(&repo, &owner, pr.number)?;
+        let pr_details = get_pull_request_details(&token, &repo, &owner, pr.number)?;
+        let date = pr_details.created_at.parse::<chrono::DateTime<Utc>>().unwrap();
+        pb_title.set_prefix(format!("{0}", date.format("%d.%m")));
         pb_title.set_message(format!("{0}", pr_details.title));
         pb_title.inc(1);
         pb.inc(1);
@@ -235,9 +242,9 @@ fn extract_pull_request_stats(
     Ok((additions, deletions, changed_files, commits, comments))
 }
 
-pub fn print_pr_statistics(repo: String, owner: String, days: u32) -> Result<(), Box<dyn std::error::Error>> {
+pub fn print_pr_statistics(token: String, repo: String, owner: String, days: u32) -> Result<(), Box<dyn std::error::Error>> {
     let (additions, deletions, changed_files, commits, comments) =
-        extract_pull_request_stats(repo, owner, days)?;
+        extract_pull_request_stats(token, repo, owner, days)?;
     let net_loc = additions
         .iter()
         .zip(deletions.iter())

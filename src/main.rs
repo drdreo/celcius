@@ -1,4 +1,6 @@
+use dotenv::dotenv;
 use quicli::prelude::*;
+use std::env;
 use structopt::StructOpt;
 
 mod git;
@@ -35,12 +37,14 @@ enum CliSubcommands {
     },
     #[structopt(name = "prstats", about = "Get PR statistics of the repository.")]
     PrStats {
+        #[structopt(long, env = "GITHUB_API_TOKEN", help = "Your GitHub API token.")]
+        token: Option<String>,
         #[structopt(default_value = "Studio", long, help = "The GitHub repository name.")]
         repo: String,
         #[structopt(
-            default_value = "nordicfactory",
-            long,
-            help = "The GitHub repository owner."
+        default_value = "nordicfactory",
+        long,
+        help = "The GitHub repository owner."
         )]
         owner: String,
 
@@ -52,6 +56,7 @@ enum CliSubcommands {
 fn main() -> CliResult<()> {
     let args = Cli::from_args();
     args.verbose.setup_env_logger("celcius")?;
+    dotenv().ok();
 
     match args.cmd {
         CliSubcommands::Clean { dry_run } => {
@@ -70,8 +75,9 @@ fn main() -> CliResult<()> {
                 }
             }
         }
-        CliSubcommands::PrStats { repo, owner, days } => {
-            match pr::print_pr_statistics(repo, owner, days) {
+        CliSubcommands::PrStats { repo, owner, days, token } => {
+            let api_token = token.or_else(|| env::var("GITHUB_API_TOKEN").ok()).expect("GITHUB_API_TOKEN not provided.");
+            match pr::print_pr_statistics(api_token, repo, owner, days) {
                 Ok(_) => {}
                 Err(error) => {
                     eprintln!("Error printing PR statistics: {}", error);

@@ -13,3 +13,11 @@ Run with `cargo run`
 ## Build a release
 
 `cargo build --release`
+
+# Environment
+GITHUB_API_TOKEN needs to be provided, either via argument when calling the CLI or via environment variable `GITHUB_API_TOKEN`.
+The token needs to have several permissions:
+- read:public_repo
+- read:user
+- read:org
+- read:enterprise
