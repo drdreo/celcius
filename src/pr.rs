@@ -5,23 +5,22 @@ use quicli::prelude::*;
 use reqwest::blocking::Client;
 use serde::Deserialize;
 use statrs::statistics::Statistics;
+use std::collections::HashMap;
 
 // use std::fs::write;
-
-//#[derive(Debug, Deserialize)]
-//struct User {
-//    login: String,
-//    avatar_url: String,
-//}
-
 static LOOKING_GLASS: Emoji<'_, '_> = Emoji("🔍  ", "");
 
+#[derive(Debug, Deserialize)]
+struct User {
+    login: String,
+    // avatar_url: String,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct PullRequest {
     number: f64,
     //    title: String,
-    //    user: User,
+    user: User,
     created_at: String,
     //    updated_at: String,
     //    closed_at: Option<String>,
@@ -115,6 +114,9 @@ fn get_pull_requests(
         cur_page += 1;
     }
 
+    // remove all PRs that are older than the date limit from this page
+    all_pull_requests.retain(|pr| pr.created_at.parse::<chrono::DateTime<Utc>>().unwrap() >= date_limit);
+
     debug!("Found {} PRs", all_pull_requests.len());
 
     Ok(all_pull_requests)
@@ -187,7 +189,7 @@ fn extract_pull_request_stats(
     repo: String,
     owner: String,
     days: u32,
-) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>), Box<dyn std::error::Error>> {
+) -> Result<(Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>, HashMap<String, u32>), Box<dyn std::error::Error>> {
     let pull_requests = get_pull_requests(&token, &repo, &owner, days)?;
 
     let mut additions = Vec::new();
@@ -195,6 +197,7 @@ fn extract_pull_request_stats(
     let mut changed_files = Vec::new();
     let mut commits = Vec::new();
     let mut comments = Vec::new();
+    let mut authors: HashMap<String, u32> = HashMap::new();
 
     let amount_pull_request = pull_requests.len();
 
@@ -234,16 +237,18 @@ fn extract_pull_request_stats(
         changed_files.push(pr_details.changed_files);
         commits.push(pr_details.commits);
         comments.push(pr_details.comments);
+        let count = authors.entry(pr.user.login.clone()).or_insert(0);
+        *count += 1;
     }
 
     pb_title.finish_and_clear();
     pb.finish_and_clear();
 
-    Ok((additions, deletions, changed_files, commits, comments))
+    Ok((additions, deletions, changed_files, commits, comments, authors))
 }
 
 pub fn print_pr_statistics(token: String, repo: String, owner: String, days: u32) -> Result<(), Box<dyn std::error::Error>> {
-    let (additions, deletions, changed_files, commits, comments) =
+    let (additions, deletions, changed_files, commits, comments, authors) =
         extract_pull_request_stats(token, repo, owner, days)?;
     let net_loc = additions
         .iter()
@@ -254,7 +259,6 @@ pub fn print_pr_statistics(token: String, repo: String, owner: String, days: u32
     println!("{}", style("PULL REQUEST STATISTICS").bold());
     println!("{} {}", style("TOTAL PRs:").blue().bold(), additions.len());
 
-    // TODO: total amount of authors
     // TODO: stats per author
     // TODO: link to PR
     print_stats("COMMITS", &commits);
@@ -263,6 +267,8 @@ pub fn print_pr_statistics(token: String, repo: String, owner: String, days: u32
     print_stats("ADDITIONS", &additions);
     print_stats("DELETIONS", &deletions);
     print_stats("COMMENTS", &comments);
+    print_authors(&authors);
+
     Ok(())
 }
 
@@ -273,4 +279,17 @@ fn print_stats(headline: &str, data: &Vec<f64>) {
     println!("Max: {}", style(data.max()).bold());
     println!("Mean: {:.2}", style(data.mean()).bold());
     println!("Std. Dev: {:.2}", style(data.std_dev()).bold());
+}
+
+fn print_authors(authors: &HashMap<String, u32>) {
+    println!("\n____ {} _____", style("AUTHORS").green().bold());
+
+    let mut authors_sorted: Vec<(&String, &u32)> = authors.iter().collect();
+    authors_sorted.sort_by_key(|&(_, count)| count);
+    authors_sorted.reverse();
+
+    println!("Total: {}", style(authors_sorted.len()).bold());
+    for (author, count) in authors_sorted {
+        println!("{}: {}", style(author).bold(), count);
+    }
 }
