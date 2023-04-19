@@ -8,8 +8,7 @@ mod pr;
 
 type CliResult<T> = Result<T, quicli::prelude::Error>;
 
-// Add cool slogan for your app here, e.g.:
-/// Make your repo great again
+/// Useful utility to utilize when utility is needed.
 #[derive(Debug, StructOpt)]
 #[structopt(rename_all = "kebab-case")]
 struct Cli {

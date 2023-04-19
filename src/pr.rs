@@ -148,38 +148,10 @@ pub fn get_pull_request_details(
     }
 
     //    let response_text = res.text()?;?
-    //        write("pr.json", &response_text)?;
+    //    write("pr.json", &response_text)?;
     //    let pr: PullRequestDetails = serde_json::from_str(&response_text)?;
 
     let pr = res.json::<PullRequestDetails>()?;
-
-    // get PR files
-    //    let files_url = pr_url + "/files";
-    //    let files_res = client
-    //        .get(&files_url)
-    //        .header("Authorization", format!("Bearer {}", token))
-    //        .header("Accept", "application/vnd.github+json")
-    //        .header("User-Agent", "drdreo/pr-stats-cli")
-    //        .send()?;
-    //
-    //    if !files_res.status().is_success() {
-    //        return Err(format!("Error fetching PR files: {}", files_res.status()).into());
-    //    }
-    //
-    //        write("pr.json", &response_text)?;
-    //
-    //
-    ////    let pr_files = files_res.json::<Vec<PRFile>>()?;
-    //
-    //    let response_text = files_res.text()?;
-    //    write("pr_files.json", &response_text)?;
-    //
-    //    let pr_files = serde_json::from_str::<Vec<PRFile>>(&response_text)?;
-    //
-    //
-    //    pr.additions = pr_files.iter().map(|file| file.additions).sum();
-    //    pr.deletions = pr_files.iter().map(|file| file.deletions).sum();
-    ////    pr.changes = pr_files.iter().map(|file| file.changes).sum();
 
     Ok(pr)
 }
@@ -201,19 +173,14 @@ fn extract_pull_request_stats(
 
     let amount_pull_request = pull_requests.len();
 
-    let spinner_style = ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}")
-        .unwrap()
-        .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ");
-
+    let spinner_style = ProgressStyle::with_template("{prefix:.bold.dim} {spinner:.blue} {wide_msg}")
+        .unwrap();
 
     println!("{} {}Fetching PR details",
              style("[2/2]").bold().dim(),
              LOOKING_GLASS);
 
     let multi_pb = MultiProgress::new();
-    // let pb_title = ProgressBar::new(amount_pull_request.try_into().unwrap());
-    // pb_title.set_style(spinner_style.clone());
-    // pb_title.set_prefix("[PR]");
     let pb_title = multi_pb.add(ProgressBar::new(amount_pull_request.try_into().unwrap()));
     pb_title.set_style(spinner_style.clone());
     pb_title.set_prefix("[PR]");
@@ -261,6 +228,7 @@ pub fn print_pr_statistics(token: String, repo: String, owner: String, days: u32
 
     // TODO: stats per author
     // TODO: link to PR
+    // TODO: caching
     print_stats("COMMITS", &commits);
     print_stats("CHANGED FILES", &changed_files);
     print_stats("NET LOC", &net_loc);
