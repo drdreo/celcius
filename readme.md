@@ -11,8 +11,10 @@ Run with `cargo run`
 `cargo run -- --verbosity prstats`
 
 ## Build a release
-
 `cargo build --release`
+
+## Using the .exe
+`./celcius.exe prstats --token=<your-token>`
 
 # Environment
 GITHUB_API_TOKEN needs to be provided, either via argument when calling the CLI or via environment variable `GITHUB_API_TOKEN`.
