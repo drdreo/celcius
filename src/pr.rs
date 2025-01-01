@@ -1,14 +1,17 @@
 use chrono::{Duration, Utc};
 use console::{Emoji, style};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+// use std::fs::write;
+use once_cell::sync::Lazy;
 use quicli::prelude::*;
 use reqwest::blocking::Client;
 use serde::Deserialize;
 use statrs::statistics::Statistics;
 use std::collections::HashMap;
 
-// use std::fs::write;
 static LOOKING_GLASS: Emoji<'_, '_> = Emoji("🔍  ", "");
+
+static HTTP_CLIENT: Lazy<Client> = Lazy::new(|| Client::new());
 
 #[derive(Debug, Deserialize)]
 struct User {
@@ -49,16 +52,6 @@ pub struct PullRequestDetails {
     comments: f64,
 }
 
-//#[derive(Debug, Deserialize)]
-//struct PRFile {
-//    sha: String,
-//    filename: String,
-//    status: String,
-//    additions: f64,
-//    deletions: f64,
-//    changes: f64,
-//}
-
 fn get_pull_requests(
     token: &String,
     repo: &String,
@@ -74,7 +67,6 @@ fn get_pull_requests(
              days, owner, repo);
 
     let mut all_pull_requests: Vec<PullRequest> = Vec::new();
-    let client = Client::new();
 
     let mut cur_page = 1;
     let page_limit = 20;
@@ -86,7 +78,8 @@ fn get_pull_requests(
             "https://api.github.com/repos/{}/{}/pulls?state=closed&per_page={}&page={}",
             owner, repo, page_limit, cur_page
         );
-        let res = client
+
+        let res = HTTP_CLIENT
             .get(url)
             .header("Authorization", format!("Bearer {}", token))
             .header("Accept", "application/vnd.github+json")
@@ -97,12 +90,6 @@ fn get_pull_requests(
             return Err(format!("API returned error status code: {}", res.status()).into());
         }
 
-        // let response_text = res.text()?;
-        // println!("{}", response_text);
-        // let response_text = res.text()?;
-        // write("prs.txt", &response_text)?;
-
-        // let page_pull_requests = serde_json::from_str::<Vec<PullRequest>>(&response_text)?;
         let page_pull_requests = res.json::<Vec<PullRequest>>()?;
         let date_limit_found = page_pull_requests.iter().any(|pr| pr.created_at.parse::<chrono::DateTime<Utc>>().unwrap() < date_limit);
         all_pull_requests.extend(page_pull_requests);
@@ -114,7 +101,7 @@ fn get_pull_requests(
         cur_page += 1;
     }
 
-    // remove all PRs that are older than the date limit from this page
+    // remove all PRs that are older than the date limit from the last page fetched
     all_pull_requests.retain(|pr| pr.created_at.parse::<chrono::DateTime<Utc>>().unwrap() >= date_limit);
 
     debug!("Found {} PRs", all_pull_requests.len());
@@ -134,9 +121,8 @@ pub fn get_pull_request_details(
         "https://api.github.com/repos/{}/{}/pulls/{}",
         owner, repo, pr_number
     );
-    let client = Client::new();
 
-    let res = client
+    let res = HTTP_CLIENT
         .get(&pr_url)
         .header("Authorization", format!("Bearer {}", token))
         .header("Accept", "application/vnd.github+json")
@@ -173,7 +159,7 @@ fn extract_pull_request_stats(
 
     let amount_pull_request = pull_requests.len();
 
-    let spinner_style = ProgressStyle::with_template("{prefix:.bold.dim} {spinner:.blue} {wide_msg}")
+    let spinner_style = ProgressStyle::with_template("{prefix:.bold.dim} {spinner:.yellow} {wide_msg}")
         .unwrap();
 
     println!("{} {}Fetching PR details",
@@ -187,8 +173,7 @@ fn extract_pull_request_stats(
 
     let pb = multi_pb.insert_after(&pb_title, ProgressBar::new(amount_pull_request.try_into().unwrap()));
     pb.set_style(
-        ProgressStyle::default_bar()
-            .template("[{elapsed_precise}] [{wide_bar}] {percent}%")?
+        ProgressStyle::default_bar().template("[{elapsed_precise}] [{wide_bar}] {percent}%")?
     );
 
     for pr in pull_requests {
