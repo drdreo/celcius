@@ -174,7 +174,7 @@ pub fn rewrite_date_of_commit(date: &String, count: usize) -> CliResult<Vec<Comm
     // Start interactive rebase
     let range = format!("HEAD~{}", count);
     Command::new("git")
-        .args(["rebase", "-i", &range])
+        .args(["rebase", "-i", &range, "--committer-date-is-author-date"])
         .env("GIT_SEQUENCE_EDITOR", "sed -i 's/^pick/edit/'")
         .output()
         .with_context(|_| "Failed to start rebase")?;
@@ -188,6 +188,7 @@ pub fn rewrite_date_of_commit(date: &String, count: usize) -> CliResult<Vec<Comm
                 "--no-edit",
                 &format!("--date={}", commit.new_date),
             ])
+            .env("GIT_COMMITTER_DATE", date)
             .output()
             .with_context(|_| "Failed to amend commit")?;
 
@@ -197,6 +198,12 @@ pub fn rewrite_date_of_commit(date: &String, count: usize) -> CliResult<Vec<Comm
             .output()
             .with_context(|_| "Failed to continue rebase")?;
     }
+
+    // After all commits are processed...
+    Command::new("git")
+        .args(["push", "--force-with-lease", "origin", "HEAD"])
+        .output()
+        .with_context(|_| "Failed to force push changes")?;
 
     Ok(commits)
 }
