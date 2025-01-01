@@ -34,6 +34,22 @@ enum CliSubcommands {
         )]
         dry_run: bool,
     },
+    #[structopt(name = "rewrite", about = "Rewrite commit history.")]
+    Rewrite {
+        #[structopt(
+            name = "date",
+            long,
+            help = "The date used for the commits. Format: %Y-%m-%d %H:% e.g.: 2025-01-01 14:32. They will be randomly spread around the provided hour."
+        )]
+        date: String,
+        #[structopt(
+            short = "c",
+            long = "count",
+            help = "The amount of commits to rewrite. Default 1.",
+            default_value = "1"
+        )]
+        count: usize,
+    },
     #[structopt(name = "prstats", about = "Get PR statistics of the repository.")]
     PrStats {
         #[structopt(long, env = "GITHUB_API_TOKEN", help = "Your GitHub API token.")]
@@ -41,13 +57,18 @@ enum CliSubcommands {
         #[structopt(default_value = "Studio", long, help = "The GitHub repository name.")]
         repo: String,
         #[structopt(
-        default_value = "nordicfactory",
-        long,
-        help = "The GitHub repository owner."
+            default_value = "nordicfactory",
+            long,
+            help = "The GitHub repository owner."
         )]
         owner: String,
 
-        #[structopt(short = "d", long = "days", help = "Set created in the past days limit", default_value = "14")]
+        #[structopt(
+            short = "d",
+            long = "days",
+            help = "Set created in the past days limit",
+            default_value = "14"
+        )]
         days: u32,
     },
 }
@@ -74,8 +95,23 @@ fn main() -> CliResult<()> {
                 }
             }
         }
-        CliSubcommands::PrStats { repo, owner, days, token } => {
-            let api_token = token.or_else(|| env::var("GITHUB_API_TOKEN").ok()).expect("GITHUB_API_TOKEN not provided.");
+        CliSubcommands::Rewrite { date, count } => match git::rewrite_date_of_commit(&date, count) {
+            Ok(commits) => {
+                println!("commits rewritten: {:?}", commits);
+            }
+            Err(error) => {
+                eprintln!("Error rewriting history: {}", error);
+            }
+        },
+        CliSubcommands::PrStats {
+            repo,
+            owner,
+            days,
+            token,
+        } => {
+            let api_token = token
+                .or_else(|| env::var("GITHUB_API_TOKEN").ok())
+                .expect("GITHUB_API_TOKEN not provided.");
             match pr::print_pr_statistics(api_token, repo, owner, days) {
                 Ok(_) => {}
                 Err(error) => {
