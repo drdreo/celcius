@@ -13,6 +13,9 @@ Run with `cargo run`
 ## Build a release
 `cargo build --release`
 
+## Publish a release
+`cargo publish`
+
 ## Using the .exe
 `./celcius.exe prstats --token=<your-token>`
 
