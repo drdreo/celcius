@@ -3,7 +3,7 @@ name = "celcius"
 version = "1.3.0"
 edition = "2021"
 authors = ["DrDreo <code@drdreo.com>"]
-license = "NSFW_LICENSE"
+license-file = "NSFW_LICENSE"
 description = "A git cli"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
