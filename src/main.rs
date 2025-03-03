@@ -95,14 +95,22 @@ fn main() -> CliResult<()> {
                 }
             }
         }
-        CliSubcommands::Rewrite { date, count } => match git::rewrite_date_of_commit(&date, count) {
-            Ok(commits) => {
-                println!("commits rewritten: {:?}", commits);
+        CliSubcommands::Rewrite { date, count } => {
+            match git::rewrite_date_of_commit(&date, count) {
+                Ok(commits) => {
+                    println!("{} commits successfully rewritten!", commits.len());
+                    for commit in commits.iter() {
+                        println!(
+                            "{}: {} --> {}",
+                            commit.commit_hash, commit.original_date, commit.new_date
+                        );
+                    }
+                }
+                Err(error) => {
+                    eprintln!("Error rewriting history: {}", error);
+                }
             }
-            Err(error) => {
-                eprintln!("Error rewriting history: {}", error);
-            }
-        },
+        }
         CliSubcommands::PrStats {
             repo,
             owner,

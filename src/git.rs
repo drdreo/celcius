@@ -1,12 +1,13 @@
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use quicli::prelude::*;
+use rand::prelude::*;
 use std::process::Command;
 
 #[derive(Debug)]
 pub struct CommitDateUpdate {
-    commit_hash: String,
-    original_date: DateTime<Utc>,
-    new_date: DateTime<Utc>,
+    pub commit_hash: String,
+    pub original_date: DateTime<Utc>,
+    pub new_date: DateTime<Utc>,
 }
 
 type CliResult<T> = Result<T, quicli::prelude::Error>;
@@ -131,6 +132,8 @@ pub fn rewrite_date_of_commit(date: &String, count: usize) -> CliResult<Vec<Comm
     let logs = String::from_utf8(git_log_output.stdout)?;
     let mut commits = Vec::new();
     let mut current_commit = None;
+    let mut total_offset = 0; // total offset in minutes
+    let mut rng = rand::thread_rng();
 
     for line in logs.lines() {
         if current_commit.is_none() {
@@ -142,6 +145,11 @@ pub fn rewrite_date_of_commit(date: &String, count: usize) -> CliResult<Vec<Comm
             let original_date = DateTime::parse_from_rfc3339(&current_date.unwrap())
                 .with_context(|err| format!("Failed to parse original date: {}", err))?
                 .with_timezone(&Utc);
+
+            let rand_offset = rng.gen_range(5..=30);
+            total_offset += rand_offset;
+
+            let new_date = new_date + Duration::minutes(total_offset as i64);
 
             let commit_update = CommitDateUpdate {
                 commit_hash: current_commit.unwrap(),
